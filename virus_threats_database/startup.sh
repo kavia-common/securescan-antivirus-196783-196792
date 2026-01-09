@@ -129,9 +129,21 @@ GRANT CREATE ON SCHEMA public TO ${DB_USER};
 \dn+ public
 EOF
 
-# Save connection command to a file
+# Apply antivirus app schema + seed data (idempotent) on startup
+# Note: we run this as the DB superuser to avoid permission issues on first boot.
+SCHEMA_FILE="$(dirname "$0")/schema_and_seed.sql"
+if [ -f "${SCHEMA_FILE}" ]; then
+    echo "Applying antivirus schema and seed data from ${SCHEMA_FILE}..."
+    sudo -u postgres ${PG_BIN}/psql -p ${DB_PORT} -d ${DB_NAME} -v ON_ERROR_STOP=1 -f "${SCHEMA_FILE}"
+    echo "✓ Schema/seed applied"
+else
+    echo "⚠ Schema file not found at ${SCHEMA_FILE}; skipping schema application"
+fi
+
+# Save connection command to a file (for backend consumption)
 echo "psql postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}" > db_connection.txt
 echo "Connection string saved to db_connection.txt"
+echo "Backend can use connection string: postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
 
 # Save environment variables to a file
 cat > db_visualizer/postgres.env << EOF
